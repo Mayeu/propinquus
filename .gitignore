@@ -1,0 +1,16 @@
+*.sw*
+*.o
+*OBJ*
+*.scn
+*.xml
+*build*
+*.simu
+*.txt.gz
+*.eps
+*.dat
+*.ps
+*.gpl
+*.png
+*.txt
+*.pyc
+*.view
