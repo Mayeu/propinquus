@@ -7,7 +7,6 @@
 *.simu
 *.txt.gz
 *.eps
-*.dat
 *.ps
 *.gpl
 *.png
