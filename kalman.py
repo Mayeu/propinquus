@@ -52,74 +52,41 @@ def export_graph(heat, ct, data, f):
                 f.write(' ' + str(e))
         f.write("\n")
 
-if __name__ == "__main__":
-    # Option parser config
-    p = OptionParser()
-    p.add_option('-n', default=6, type=int, help='Set the dimension of r. dim(r) = n*1')
-    p.add_option('-t','--training-file', default='training.dat', help='Set the training file.')
-    p.add_option('-i','--input-file', default='input.dat', help='Set the input file to filter')
-    p.add_option('-m','--heatmap', action='store_true', default=False, help='Graphical data of input and predicted sequence will be format as heatmap')
-    p.add_option('-l','--training_loop', default=30, type=int, help='number of loop of training.')
-
-    label .start
-
-    # Kalman Gain
-    K = 0.2
-
-    # Parse the args
-    (o, args) = p.parse_args()
-
-    training_file = o.training_file # get the training file from the given args
-
-    f = open(training_file,'r')
-    line = f.readline()
-    f.close()
-
-    k = len(line.strip("\n").split(' '))
-
-    n = o.n # get n from the given args
-
+def learning():
+    # generate U and V orthonormal
     if n > k:
         a = np.random.random_sample((n,k))
     else:
         a = np.random.random_sample((k,n))
 
-    # generate U orthonormal
-    (U,r) = np.linalg.qr(a)
+    (U_barre_t,r) = np.linalg.qr(a)
     if n > k :
-        U = U.T
+        U_barre_t = U_barre_t.T
 
-    (V,r) = np.linalg.qr(np.random.random_sample((n,n)))
-    #print 'U:'
-    #print U
+    (V_barre_t_1,r) = np.linalg.qr(np.random.random_sample((n,n)))
 
-    #U_barre_t = np.random.random_integers(0, 1, (k,n)) #* 0.001
     #U_barre_t = np.random.random_sample((k,n)) #* 0.001
-    U_barre_t = U
-    #print 'U_barre_t'
-    #print U_barre_t
-    #U_barre_t = np.ones((k,n)) * 0.5
     print 'U_barre_t size:' + str(k) + 'x' + str(n)
     #V_barre_t_1 = np.random.random_integers(0, 1, (n,n)) #* 0.001
-    #V_barre_t_1 = np.random.random_sample((n,n)) #* 0.9
-    V_barre_t_1 = V
-    #print 'V_barre_t_1'
-    #print V_barre_t_1
-    #V_barre_t_1 = np.ones((n,n)) * 0.5
     print 'V_barre_t_1 size:' + str(n) + 'x' + str(n)
+
+    # Initialize r to 0
     r_opt_t_1 = np.zeros((n,1))
 
     alpha = 0.8
     beta = 0.8
 
+    # Number of training loop
     t = o.training_loop
 
-    # File for graphing error of U
-    #geu = open('graph_error_U.dat', 'a')
-    #geu.write("\n# Dataset\n");
-    # File for graphing error of V
-    #gev = open('graph_error_V.dat', 'a')
-    #gev.write("\n# Dataset\n")
+    # Openning file for graphing error
+    if o.graph_learning_error:
+        # File for graphing error of U
+        geu = open('graph_error_U.dat', 'a')
+        geu.write("\n# Dataset\n");
+        # File for graphing error of V
+        gev = open('graph_error_V.dat', 'a')
+        gev.write("\n# Dataset\n")
 
     c = 0
 
@@ -133,8 +100,11 @@ if __name__ == "__main__":
         #if i != 0:
         #    alpha = alpha / 1.0025
         #    beta = beta / 1.0025
-        print_error_U = 0
-        print_error_V = 0
+
+        # Initial value of the error
+        if o.graph_learning_error:
+            print_error_U = 0
+            print_error_V = 0
 
         for line in f:
             #print 'out of extract data'
@@ -155,9 +125,7 @@ if __name__ == "__main__":
             # not ideal, but it will do it for now
             if np.isinf(U_barre_t).all() or np.isnan(U_barre_t).all() or np.isinf(V_barre_t_1).all() or np.isnan(V_barre_t_1).all():
                 print "Step " + str(i) + " on " + str(t)
-                # This is one of the dirtiest things I've ever wrote.
-                # Plz God of Byte, pardon me, I'm just a mere mortal !
-                goto .start
+                return ([],[], True)
 
             # Filter equation for learning
             r_prime_t = np.dot(V_barre_t_1, r_opt_t_1) # eq 21
@@ -168,14 +136,15 @@ if __name__ == "__main__":
             # U_opt -> Û
             # U_barre -> Ū
             error_U = alpha * np.dot((I_t - np.dot(U_barre_t , r_opt_t)), (r_opt_t.T)) 
-            #print_error_U += error_U
             U_opt_t = U_barre_t + error_U # eq 18
 
             error_V = beta * np.dot((r_opt_t - r_prime_t), r_opt_t_1.T)
-            #print_error_V += error_V
             V_opt_t_1 = V_barre_t_1 + error_V # eq 19
 
-            #print U_opt_t
+            # Colecting learning error
+            if o.graph_learning_error:
+                print_error_U += error_U
+                print_error_V += error_V
 
             # Update counter
             fc += 1 
@@ -183,23 +152,57 @@ if __name__ == "__main__":
 
         f.close()
 
-        # Graph error
-        #geu.write(str(i) + ' ' + str(print_error_U.mean()/k) + '\n')
-        #gev.write(str(i) + ' ' + str(print_error_V.mean()/k) + '\n')
+        # Writing learning error to a file
+        if o.graph_learning_error:
+            geu.write(str(i) + ' ' + str(print_error_U.mean()/k) + '\n')
+            gev.write(str(i) + ' ' + str(print_error_V.mean()/k) + '\n')
 
 
-    #geu.write("\n")
-    #gev.write("\n")
-    #geu.close()
-    #gev.close()
+    # Closing learning error file
+    if o.graph_learning_error:
+        geu.write("\n").close()
+        gev.write("\n").close()
 
     print "==> Learning Done"
 
+    return (U_opt_t, V_opt_t_1, False)
+
+
+if __name__ == "__main__":
+    # Option parser config
+    p = OptionParser()
+    p.add_option('-n', default=6, type=int, help='Set the dimension of r. dim(r) = n*1')
+    p.add_option('-t','--training-file', default='training.dat', help='Set the training file.')
+    p.add_option('-i','--input-file', default='input.dat', help='Set the input file to filter')
+    p.add_option('-m','--heatmap', action='store_true', default=False, help='Graphical data of input and predicted sequence will be format as heatmap')
+    p.add_option('-l','--training-loop', default=30, type=int, help='number of loop of training.')
+    p.add_option('-g','--graph-learning-error', default=False, action='store_true', help='number of loop of training.')
+
+    # Kalman Gain
+    K = 0.2
+
+    # Parse the args
+    (o, args) = p.parse_args()
+
+    training_file = o.training_file # get the training file from the given args
+
+    # Settings the matrix size
+    f = open(training_file,'r')
+    line = f.readline()
+    f.close()
+    k = len(line.strip("\n").split(' '))
+    n = o.n # get n from the given args
+
+    # Learning
+    restart = True
+    while restart: # This while is here to start over in case of NaN of Inf matrix
+        (U,V,restart) = learning()
+
     # Saving U and V
-    U = U_opt_t
     np.savetxt('U_'+str(n)+'.dat',U)
-    V = V_opt_t_1
     np.savetxt('V_'+str(n)+'.dat',V)
+
+    # Initial value of r_opt_t_1
     r_opt_t_1 = np.zeros((n,1))
 
     f = open(o.input_file,'r')
