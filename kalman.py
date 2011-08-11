@@ -1,20 +1,30 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# Kalman filter implementation
 # Equations are taken from the following article :
 # Rao, R. P. (1999). An optimal estimation approach to visual perception
 # and learning. Vision research, 39(11), 1963-89. Retrieved from
 # http://www.ncbi.nlm.nih.gov/pubmed/10343783.
 
 import numpy as np
+import sys
+from optparse import OptionParser
+from goto import goto, label
 
+# Extract vector from file
+# one vector per line
 def extract_data(line):
+    #print 'In extract data'
+    #print line
     el = line.rstrip('\n').split(' ')
+   # print el
     #print el
     data = np.array([[]])
     #print data
     counter = 0
     for e in el:
+        #print e
         if counter == 0:
             data = [[float(e)]]
         #print e
@@ -25,141 +35,204 @@ def extract_data(line):
 
     return data
 
-training_file = 'tail_muscles_size.dat'
+# Export graph to file, heatmap or dot
+def export_graph(heat, ct, data, f):
+    if heat:
+        i = 0
+        for el in data:
+            for e in el:
+                f.write(str(ct) + ' ' + str(i) + ' ' + str(e) + "\n")
+            i += 1
+        f.write("\n")
 
-f = open(training_file,'r')
-line = f.readline()
+    else:
+        f.write(str(ct))
+        for el in data:
+            for e in el:
+                f.write(' ' + str(e))
+        f.write("\n")
 
-k = len(line.strip("\n").split(' '))
-n = k
-#print 'k:'
-#print k
-f.close()
-#I_t = np.array([[[1],[1],[1],[1]],[[2],[2],[2],[2]],[[3],[3],[3],[3]],[[4],[4],[4],[4]],[[5],[5],[5],[5]]])
-#I_t = np.array([
-#    [[1],[0],[0]],
-#    [[0],[1],[0]],
-#    [[0],[0],[1]],
-#    [[0],[1],[0]],
-#    [[1],[0],[0]]
-#    ])
-#print I_t
-U_barre_t = np.random.random_integers(0, 10, (k,n)) * 0.001
-#U_barre_t = np.zeros((k,n))
-#print 'U_barre_t:'
-#print U_barre_t
-V_barre_t_1 = np.random.random_integers(0, 10, (n,n)) * 0.001
-#V_barre_t_1 = np.zeros((k,n))
-#print 'V_barre_t_1:'
-#print V_barre_t_1
-r_opt_t_1 = np.zeros((n,1))
+if __name__ == "__main__":
+    # Option parser config
+    p = OptionParser()
+    p.add_option('-n', default=6, type=int, help='Set the dimension of r. dim(r) = n*1')
+    p.add_option('-t','--training-file', default='training.dat', help='Set the training file.')
+    p.add_option('-i','--input-file', default='input.dat', help='Set the input file to filter')
+    p.add_option('-m','--heatmap', action='store_true', default=False, help='Graphical data of input and predicted sequence will be format as heatmap')
+    p.add_option('-l','--training_loop', default=30, type=int, help='number of loop of training.')
 
-alpha = 1
-beta = 1
+    label .start
 
-t = 100
+    # Kalman Gain
+    K = 0.2
 
-for i in range(t):
+    # Parse the args
+    (o, args) = p.parse_args()
+
+    training_file = o.training_file # get the training file from the given args
+
     f = open(training_file,'r')
-    fc = 0
-    if i != 0:
-        alpha = alpha / 1.0025
-        beta = beta / 1.0025
-
-    for line in f:
-        I_t = extract_data(line)
-        #print 'I_t:'
-        #print I_t
-        if i != 0 or fc != 0 :
-            U_barre_t = U_opt_t
-            V_barre_t_1 = V_opt_t_1
-            r_opt_t_1 = r_opt_t
-
-    # Filter equation for learning
-        r_prime_t = np.dot(V_barre_t_1, r_opt_t_1) # eq 21
-        #print 'r_prime_t: '
-        #print r_prime_t
-        #print 'U_barre_t.r_prime_t: '
-        #print np.dot(U_barre_t, r_prime_t)
-        #print 'I_t - U_barre_t.r_prime_t: '
-        #print I_t[i%5] - np.dot(U_barre_t, r_prime_t)
-
-        r_opt_t = r_prime_t + 0.2 * np.dot(U_barre_t.transpose(), ( I_t - np.dot(U_barre_t, r_prime_t))) # eq 20 
-
-        #print 'r_opt_t:'
-        #print r_opt_t
-
-    # Learning equation (5.3)
-    # U_opt -> Û
-    # U_barre -> Ū
-        #print 'U.r: '
-        #print np.dot(U_barre_t, r_opt_t)
-        U_opt_t = U_barre_t + alpha * np.dot((I_t - np.dot(U_barre_t , r_opt_t)), (r_opt_t.transpose())) # eq 18
-        V_opt_t_1 = V_barre_t_1 + beta * np.dot((r_opt_t - r_prime_t), r_opt_t_1.transpose()) # eq 19
-        
-        fc += 1 
+    line = f.readline()
     f.close()
 
-#print 'U_opt_t: '
-#print U_opt_t
-print 'V_opt_t_1: '
-print V_opt_t_1
+    k = len(line.strip("\n").split(' '))
 
-U = U_opt_t
-V = V_opt_t_1
-r_opt_t_1 = np.zeros((n,1))
+    n = o.n # get n from the given args
+
+    if n > k:
+        a = np.random.random_sample((n,k))
+    else:
+        a = np.random.random_sample((k,n))
+
+    # generate U orthonormal
+    (U,r) = np.linalg.qr(a)
+    if n > k :
+        U = U.T
+
+    (V,r) = np.linalg.qr(np.random.random_sample((n,n)))
+    #print 'U:'
+    #print U
+
+    #U_barre_t = np.random.random_integers(0, 1, (k,n)) #* 0.001
+    #U_barre_t = np.random.random_sample((k,n)) #* 0.001
+    U_barre_t = U
+    #print 'U_barre_t'
+    #print U_barre_t
+    #U_barre_t = np.ones((k,n)) * 0.5
+    print 'U_barre_t size:' + str(k) + 'x' + str(n)
+    #V_barre_t_1 = np.random.random_integers(0, 1, (n,n)) #* 0.001
+    #V_barre_t_1 = np.random.random_sample((n,n)) #* 0.9
+    V_barre_t_1 = V
+    #print 'V_barre_t_1'
+    #print V_barre_t_1
+    #V_barre_t_1 = np.ones((n,n)) * 0.5
+    print 'V_barre_t_1 size:' + str(n) + 'x' + str(n)
+    r_opt_t_1 = np.zeros((n,1))
+
+    alpha = 0.8
+    beta = 0.8
+
+    t = o.training_loop
+
+    # File for graphing error of U
+    #geu = open('graph_error_U.dat', 'a')
+    #geu.write("\n# Dataset\n");
+    # File for graphing error of V
+    #gev = open('graph_error_V.dat', 'a')
+    #gev.write("\n# Dataset\n")
+
+    c = 0
+
+    print "==> Start learning phase: dim(r)="+str(r_opt_t_1.shape)+", dim(U)="+str(U_barre_t.shape)+", dim(V)="+str(V_barre_t_1.shape)
+
+    for i in range(t):
+        #if (i%10):
+        sys.stdout.write("Step " + str(i) + " on " + str(t) +"\r")
+        f = open(training_file,'r')
+        fc = 0
+        #if i != 0:
+        #    alpha = alpha / 1.0025
+        #    beta = beta / 1.0025
+        print_error_U = 0
+        print_error_V = 0
+
+        for line in f:
+            #print 'out of extract data'
+            #print line
+            I_t = extract_data(line)
+
+            #print 'Loop ' + str((i+1) * (fc+1))
+
+            # Update U, V and r
+            if i != 0 or fc != 0 :
+                U_barre_t = U_opt_t
+                r_opt_t_1 = r_opt_t
+                V_barre_t_1 = V_opt_t_1
+                #alpha = alpha / 1.0025
+                #beta = beta / 1.0025
+
+            # If we go to NaN or Inf, reset everything, really
+            # not ideal, but it will do it for now
+            if np.isinf(U_barre_t).all() or np.isnan(U_barre_t).all() or np.isinf(V_barre_t_1).all() or np.isnan(V_barre_t_1).all():
+                print "Step " + str(i) + " on " + str(t)
+                # This is one of the dirtiest things I've ever wrote.
+                # Plz God of Byte, pardon me, I'm just a mere mortal !
+                goto .start
+
+            # Filter equation for learning
+            r_prime_t = np.dot(V_barre_t_1, r_opt_t_1) # eq 21
+
+            r_opt_t = r_prime_t + K * np.dot(U_barre_t.T, ( I_t - np.dot(U_barre_t, r_prime_t))) # eq 20 
+
+            # Learning equation (5.3)
+            # U_opt -> Û
+            # U_barre -> Ū
+            error_U = alpha * np.dot((I_t - np.dot(U_barre_t , r_opt_t)), (r_opt_t.T)) 
+            #print_error_U += error_U
+            U_opt_t = U_barre_t + error_U # eq 18
+
+            error_V = beta * np.dot((r_opt_t - r_prime_t), r_opt_t_1.T)
+            #print_error_V += error_V
+            V_opt_t_1 = V_barre_t_1 + error_V # eq 19
+
+            #print U_opt_t
+
+            # Update counter
+            fc += 1 
+            c += 1
+
+        f.close()
+
+        # Graph error
+        #geu.write(str(i) + ' ' + str(print_error_U.mean()/k) + '\n')
+        #gev.write(str(i) + ' ' + str(print_error_V.mean()/k) + '\n')
 
 
-f = open('predicting_sequence.dat','r')
-fpg = open('predicting_graph.dat','w')
-fig = open('input_graph.dat','w')
-fdg = open('delta_graph.dat','w')
-ct = 0
-r_barre_t = np.dot(V, r_opt_t_1) # eq 15
-for line in f:
-    I_t = extract_data(line)
-# Filter equation
-    #print 'r_barre_t:'
-    #print r_barre_t
+    #geu.write("\n")
+    #gev.write("\n")
+    #geu.close()
+    #gev.close()
 
-    #print 'I_t: '
-    #print I_t
-    fig.write(str(ct))
-    for el in I_t:
-        for e in el:
-            fig.write(' ' + str(e))
-    fig.write("\n")
+    print "==> Learning Done"
 
+    # Saving U and V
+    U = U_opt_t
+    np.savetxt('U_'+str(n)+'.dat',U)
+    V = V_opt_t_1
+    np.savetxt('V_'+str(n)+'.dat',V)
+    r_opt_t_1 = np.zeros((n,1))
 
-    r_opt_t = r_barre_t + 0.2 * np.dot(U.transpose(), (I_t - np.dot(U, r_barre_t))) # eq 14
+    f = open(o.input_file,'r')
+    fpg = open('predicting_graph_'+o.input_file.rstrip('.dat')+'_'+str(n)+'.dat','w')
+    fig = open('input_graph_'+o.input_file.rstrip('.dat')+'_'+str(n)+'.dat','w')
+    fdg = open('error_graph_'+o.input_file.rstrip('.dat')+'_'+str(n)+'.dat','w')
+    ct = 0
 
-    r_opt_t_1 = r_opt_t
+    print "==> Start predicting phase"
 
-    r_barre_t = np.dot(V, r_opt_t_1) # eq 15
+    for line in f:
+        # Filter equation
+        r_barre_t = np.dot(V, r_opt_t_1) # eq 15
+        pred = np.dot(U, r_barre_t) # eq 1
+        export_graph(o.heatmap, ct, pred, fpg)
+        
+        I_t = extract_data(line)
+        export_graph(o.heatmap, ct, I_t, fig)
 
-    pred = np.dot(U, r_barre_t) # eq 1
+        # Update the internal state with the entry
+        r_opt_t = r_barre_t + K * np.dot(U.T, (I_t - np.dot(U, r_barre_t))) # eq 14
+        r_opt_t_1 = r_opt_t
 
-    #print 'Prediction: '
-    #print np.dot(U, r_opt_t)
-    #i = 0
-    fpg.write(str(ct))
-    for el in pred:
-        for e in el:
-            fpg.write(' ' + str(e))
-    fpg.write("\n")
+        # Print error map
+        error = np.absolute((pred - I_t)/I_t)
+        export_graph(o.heatmap,ct,error,fdg)
+        #export_graph(o.heatmap, ct, I_t - pred, fdg)
 
-    # Print delta heat map
-    delta = I_t - pred
-    i = 0
-    for el in delta:
-        for e in el:
-            fdg.write(str(ct) + ' ' + str(i) + ' ' + str(e) + "\n")
-        i += 1
-    fdg.write("\n")
+        ct += 1
 
-    ct += 1
+    print "==> Predicting Done"
 
-f.close()
-fpg.close()
-fig.close()
-fdg.close()
+    f.close()
+    fpg.close()
+    fig.close()
+    fdg.close()
