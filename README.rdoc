@@ -1,0 +1,41 @@
+= Propinquus
+
+This python script is an implementation of the Kalman filter described
+in:
+Rao, R. P. (1999). An optimal estimation approach to visual perception
+and learning. Vision research, 39(11), 1963-89. Retrieved from
+http://www.ncbi.nlm.nih.gov/pubmed/10343783
+
+We use this filter to make prediction of neural sequence during
+the locomotion of C. Elegans. The goal is to predict neural 
+sequence in mouvement where we do not have this kind of information.
+
+As I write this readme, the current script only predict muscle size, and
+is not already able to predict neural sequence.
+
+== Usage
+
+Usage:
+   kalman.py [options]
+
+Options:
+  -h, --help            show this help message and exit
+  -n N                  Set the dimension of r. shape(r) = n*1.
+  -t TRAINING_FILE, --training-file=TRAINING_FILE
+                        Set the training file.
+  -i INPUT_FILE, --input-file=INPUT_FILE
+                        Set the input file to filter.
+  -m, --heatmap         Graphical data of input and predicted sequence will be
+                        formated as heatmap.
+  -l TRAINING_LOOP, --training-loop=TRAINING_LOOP
+                        Number of loop of training.
+  -g, --graph-learning-error
+                        Print in file the learning error.
+
+You should at least provide a training file, a input file and the number
+of training loop.
+
+== Other script
+
+In the script folder, you can find a script to convert SOFA output file
+to muscles size, and a script to calculate the mean error of learning.
