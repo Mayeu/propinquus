@@ -1,6 +1,13 @@
 #! /usr/bin/env python2
 # -*- coding: utf-8 -*-
 
+# ----------------------------------------------------------------------------
+# "THE BEER-WARE LICENSE" (Revision 42):
+# <mayeu.tik@gmail.com> wrote this file. As long as you retain this notice you
+# can do whatever you want with this stuff. If we meet some day, and you think
+# this stuff is worth it, you can buy me a beer in return. Matthieu Maury
+# ----------------------------------------------------------------------------
+
 # Kalman filter implementation
 # Equations are taken from the following article :
 # Rao, R. P. (1999). An optimal estimation approach to visual perception
