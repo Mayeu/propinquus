@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python2
 # -*- coding: utf-8 -*-
 
 # Kalman filter implementation
@@ -10,7 +10,7 @@
 import numpy as np
 import sys
 from optparse import OptionParser
-from goto import goto, label
+from multiprocessing import Pool
 
 # Extract vector from file
 # one vector per line
@@ -52,7 +52,7 @@ def export_graph(heat, ct, data, f):
                 f.write(' ' + str(e))
         f.write("\n")
 
-def learning():
+def learning(n,k):
     # generate U and V orthonormal
     if n > k:
         a = np.random.random_sample((n,k))
@@ -82,10 +82,10 @@ def learning():
     # Openning file for graphing error
     if o.graph_learning_error:
         # File for graphing error of U
-        geu = open('graph_error_U.dat', 'a')
+        geu = open('graph_error_U_'+str(n)+'.dat', 'a')
         geu.write("\n# Dataset\n");
         # File for graphing error of V
-        gev = open('graph_error_V.dat', 'a')
+        gev = open('graph_error_V_'+str(n)+'.dat', 'a')
         gev.write("\n# Dataset\n")
 
     c = 0
@@ -94,7 +94,7 @@ def learning():
 
     for i in range(t):
         #if (i%10):
-        sys.stdout.write("Step " + str(i) + " on " + str(t) +"\r")
+        #sys.stdout.write("Step " + str(i) + " on " + str(t) +"\r")
         f = open(training_file,'r')
         fc = 0
         #if i != 0:
@@ -160,55 +160,28 @@ def learning():
 
     # Closing learning error file
     if o.graph_learning_error:
-        geu.write("\n").close()
-        gev.write("\n").close()
+        geu.write("\n")
+        geu.close()
+        gev.write("\n")
+        gev.close()
 
     print "==> Learning Done"
 
     return (U_opt_t, V_opt_t_1, False)
 
-
-if __name__ == "__main__":
-    # Option parser config
-    p = OptionParser()
-    p.add_option('-n', default=6, type=int, help='Set the dimension of r. dim(r) = n*1')
-    p.add_option('-t','--training-file', default='training.dat', help='Set the training file.')
-    p.add_option('-i','--input-file', default='input.dat', help='Set the input file to filter')
-    p.add_option('-m','--heatmap', action='store_true', default=False, help='Graphical data of input and predicted sequence will be format as heatmap')
-    p.add_option('-l','--training-loop', default=30, type=int, help='number of loop of training.')
-    p.add_option('-g','--graph-learning-error', default=False, action='store_true', help='number of loop of training.')
-
-    # Kalman Gain
-    K = 0.2
-
-    # Parse the args
-    (o, args) = p.parse_args()
-
-    training_file = o.training_file # get the training file from the given args
-
-    # Settings the matrix size
-    f = open(training_file,'r')
-    line = f.readline()
-    f.close()
-    k = len(line.strip("\n").split(' '))
-    n = o.n # get n from the given args
-
-    # Learning
-    restart = True
-    while restart: # This while is here to start over in case of NaN of Inf matrix
-        (U,V,restart) = learning()
-
-    # Saving U and V
-    np.savetxt('U_'+str(n)+'.dat',U)
-    np.savetxt('V_'+str(n)+'.dat',V)
+def predict(U,V):
 
     # Initial value of r_opt_t_1
     r_opt_t_1 = np.zeros((n,1))
 
     f = open(o.input_file,'r')
-    fpg = open('predicting_graph_'+o.input_file.rstrip('.dat')+'_'+str(n)+'.dat','w')
-    fig = open('input_graph_'+o.input_file.rstrip('.dat')+'_'+str(n)+'.dat','w')
-    fdg = open('error_graph_'+o.input_file.rstrip('.dat')+'_'+str(n)+'.dat','w')
+    fpg = open('predicting_graph_'+o.input_file.rstrip('.dat')+'_'+str(n)+'.dat','a')
+    fpg.write('\n# Dataset')
+    fig = open('input_graph_'+o.input_file.rstrip('.dat')+'_'+str(n)+'.dat','a')
+    fig.write('\n# Dataset')
+    fdg = open('error_graph_'+o.input_file.rstrip('.dat')+'_'+str(n)+'.dat','a')
+    fdg.write('\n# Dataset')
+
     ct = 0
 
     print "==> Start predicting phase"
@@ -239,3 +212,56 @@ if __name__ == "__main__":
     fpg.close()
     fig.close()
     fdg.close()
+
+def kalman(x):
+    # Settings the matrix size
+    f = open(training_file,'r')
+    line = f.readline()
+    f.close()
+    k = len(line.strip("\n").split(' '))
+    #n = o.n # get n from the given args
+    n = x
+
+    # Learning
+    restart = True
+    while restart: # This while is here to start over in case of NaN of Inf matrix
+        (U,V,restart) = learning(n,k)
+
+    # Saving U and V
+    f = open('U_'+str(n)+'.dat','a')
+    f.write("\n# Dataset\n")
+    np.savetxt(f,U)
+    f.close()
+    f = open('V_'+str(n)+'.dat','a')
+    f.write("\n# Dataset\n")
+    np.savetxt(f,V)
+    f.close()
+
+    predict(U, V)
+
+if __name__ == "__main__":
+    # Option parser config
+    p = OptionParser()
+    p.add_option('-n', default=6, type=int, help='Set the dimension of r. shape(r) = n*1.')
+    p.add_option('-t','--training-file', default='training.dat', help='Set the training file.')
+    p.add_option('-i','--input-file', default='input.dat', help='Set the input file to filter.')
+    p.add_option('-m','--heatmap', action='store_true', default=False, help='Graphical data of input and predicted sequence will be formated as heatmap.')
+    p.add_option('-l','--training-loop', default=30, type=int, help='Number of loop of training.')
+    p.add_option('-g','--graph-learning-error', default=False, action='store_true', help='Print in file the learning error.')
+    #p.add_option('-p','--pool', default=2, type=int, help='Number of parallel thread to launch.')
+
+    # Kalman Gain
+    K = 0.2
+
+    # Parse the args
+    (o, args) = p.parse_args()
+
+    training_file = o.training_file # get the training file from the given args
+    
+    # Parallel launch with different n value
+    #pool = 5
+    #p = Pool(pool)
+    #p.map(kalman,[4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24])
+
+    # Standart launch
+    kalman(o.n)
