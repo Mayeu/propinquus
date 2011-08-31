@@ -12,8 +12,10 @@ import sys
 import fileinput
 import re
 
+# Calculation of the mean of error matrix file. Kind of quick and dirty version...
+
 f = open('mean_error.dat','w')
-r = [10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,4,5,6,7,8,9]
+r = [10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,4,5,6,7,8,9] # idealy this value should be extracted from the filename
 c = -1
 cf = 0
  

@@ -12,6 +12,11 @@ import math
 import re
 import numpy
 
+# Extract muscles size from a SOFA dump file.
+# The file is formated as :
+# <step> <list of muscles size>
+# <step> ...
+
 name = 'data_worm.dat'
 nout = 'tail_muscles_size_all.dat'
 
